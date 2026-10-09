@@ -4,6 +4,7 @@ name: Deploy Preview
   push:
     branches:
       - main
+      - personal
     paths:
       - 'src/**'
       - 'scripts/**'
