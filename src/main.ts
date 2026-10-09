@@ -14,6 +14,7 @@ https://github.com/powerfullz/override-rules
 - quic: 允许 QUIC 流量（UDP 443，默认 false）
 - threshold: 地区节点数量小于该值时不显示分组 (默认 0)
 - regex: 使用正则过滤模式（include-all + filter）写入各地区代理组，而非直接枚举节点名称（默认 false）
+- inlinelanding: 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称（默认 false）
 
 源码已迁移至 `src/*.ts`。
 */
@@ -33,7 +34,8 @@ import { ruleProviders } from "./rule_providers";
 import { buildDns, snifferConfig } from "./dns";
 import { buildTunConfig } from "./tun";
 import { buildBaseLists } from "./selectors";
-import type { ClashConfig, ScriptArgs } from "./types";
+import { isNotNull } from "./utils";
+import type { ClashConfig, ProxyGroup, ProxyNode, ScriptArgs } from "./types";
 
 const geoxURL = {
     geoip: `${CDN_URL}/gh/MetaCubeX/meta-rules-dat@release/geoip.dat`,
@@ -62,9 +64,29 @@ const {
     fakeIPEnabled,
     quicEnabled,
     regexFilter,
+    inlineLandingEnabled,
     tunEnabled,
     countryThreshold,
 } = buildFeatureFlags(rawArgs);
+
+/**
+ * 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称。
+ * 展开后除「落地节点」组本身外，不再有任何代理组引用该组。
+ * @param groups - 已构建完成的代理组列表（须已包含 GLOBAL 组）
+ * @param landingNodes - 落地节点数组，名称按其原顺序插入引用所在位置
+ */
+function expandLandingGroupReferences(groups: ProxyGroup[], landingNodes: ProxyNode[]): void {
+    const landingNames = landingNodes.map((node) => node.name).filter(isNotNull);
+    if (landingNames.length === 0) return;
+
+    for (const group of groups) {
+        if (group.name === PROXY_GROUPS.LANDING || !Array.isArray(group.proxies)) continue;
+        // 赋新数组而非原地修改：多个代理组共享同一份基础列表实例
+        group.proxies = group.proxies.flatMap((name) =>
+            name === PROXY_GROUPS.LANDING ? landingNames : name
+        );
+    }
+}
 
 function main(config: ClashConfig): ClashConfig {
     if (!config.proxies || !Array.isArray(config.proxies)) {
@@ -118,6 +140,10 @@ function main(config: ClashConfig): ClashConfig {
         type: "select",
         proxies: globalProxies,
     });
+
+    if (inlineLandingEnabled) {
+        expandLandingGroupReferences(proxyGroups, landingNodes);
+    }
 
     const finalRules = buildRules({ quicEnabled }, hasTailscale);
 

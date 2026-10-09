@@ -149,7 +149,7 @@ flowchart TD
 - `grouptype=1`（`url-test`）；若未指定 `grouptype`，仍兼容旧的 `loadbalance` 参数；
 - `fakeip=true`；
 - `threshold=2`，少于两个节点的地区不会生成地区组；
-- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun` 默认关闭。
+- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun`、`inlinelanding` 默认关闭。
 
 布尔参数接受 `true`/`false` 和 `1`/`0` 形式。
 
