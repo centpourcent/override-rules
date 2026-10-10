@@ -16,6 +16,7 @@ https://github.com/powerfullz/override-rules
 - regex: 使用正则过滤模式（include-all + filter）写入各地区代理组，而非直接枚举节点名称（默认 false）
 - inlinelanding: 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称（默认 false）
 - splitproviders: 按订阅提供商拆分地区代理组，逗号分隔的提供商名称（默认空，功能关闭）
+- globalgroup: 是否在配置中定义 GLOBAL 代理组（默认 true；传 false 时不定义，由内核使用其内置 GLOBAL）
 
 源码已迁移至 `src/*.ts`。
 */
@@ -67,6 +68,7 @@ const {
     regexFilter,
     inlineLandingEnabled,
     splitProviders,
+    globalGroupEnabled,
     tunEnabled,
     countryThreshold,
 } = buildFeatureFlags(rawArgs);
@@ -151,14 +153,16 @@ function main(config: ClashConfig): ClashConfig {
         frontProxySelector,
     });
 
-    const globalProxies = proxyGroups.map((item) => String(item.name));
-    proxyGroups.push({
-        name: PROXY_GROUPS.GLOBAL,
-        icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Global.png`,
-        "include-all": true,
-        type: "select",
-        proxies: globalProxies,
-    });
+    if (globalGroupEnabled) {
+        const globalProxies = proxyGroups.map((item) => String(item.name));
+        proxyGroups.push({
+            name: PROXY_GROUPS.GLOBAL,
+            icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Global.png`,
+            "include-all": true,
+            type: "select",
+            proxies: globalProxies,
+        });
+    }
 
     if (inlineLandingEnabled) {
         expandLandingGroupReferences(proxyGroups, landingNodes);

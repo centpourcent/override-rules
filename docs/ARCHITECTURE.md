@@ -158,12 +158,18 @@ flowchart TD
 - **`threshold` 只作用于地区总量**，子分组只要有节点就生成。若按子分组门槛过滤会静默丢节点：默认 `threshold=2` 时，某地区 3 个节点按 2/1 拆分，单节点子分组被丢弃而基础分组又排除了这些节点，该节点将不属于任何地区组。保持「基础分组 ∪ 子分组 = 该地区全部合格节点」的分区不变式更重要。
 - **子分组在 `buildProxyGroups()` 内创建**，因此自动进入 `GLOBAL` 的排序表，不会重蹈「有代理组未列入 GLOBAL 导致客户端排序错乱」的覆辙。
 
+### GLOBAL 代理组（globalgroup）
+
+Mihomo 的 `GLOBAL` 是**内置代理组**：即使配置里完全不定义，内核也会生成一个 `GLOBAL` 并自动纳入所有代理与代理组。在配置中定义它的价值在于**顺序**——web 面板与部分客户端（如 Clash Verge Rev）会用 `GLOBAL.proxies` 中代理组的书写顺序来排列面板，而内核 `/proxies` 接口返回的组是无序的。因此 `buildProxyGroups()` 生成的全部代理组都会按序列入其中（不含 GLOBAL 自身）；这也正是 `inlinelanding` 展开时必须跳过 GLOBAL 的原因，否则被展开掉的组会从排序表中消失，在客户端里被排到列表最前。
+
+`globalgroup=false` 时脚本只是不再定义它——内核内置的那个依然存在，成员与顺序回归内核默认。该开关用于规避个别客户端的 GLOBAL 相关兼容问题，代价是面板排序失去依据。
+
 ### args.ts 的默认值
 
 所有 URL 参数都有明确的默认值。`buildFeatureFlags()` 负责解析并回填默认值，产出类型安全的 `FeatureFlags` 对象。这使得下游模块无需关心参数来源或缺失情况——每个标志都有确定的值。当前默认值包括：
 
 - `grouptype=1`（`url-test`）；若未指定 `grouptype`，仍兼容旧的 `loadbalance` 参数；
-- `fakeip=true`；
+- `fakeip=true`、`globalgroup=true`；
 - `threshold=2`，少于两个节点的地区不会生成地区组；
 - `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun`、`inlinelanding` 默认关闭；
 - `splitproviders` 默认为空列表（功能关闭）——它是本脚本唯一的列表型参数，不走布尔解析。

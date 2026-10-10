@@ -33,6 +33,7 @@ export function buildFeatureFlags(args: ScriptArgs): FeatureFlags {
         regexFilter: parseBool(args.regex),
         inlineLandingEnabled: parseBool(args.inlinelanding),
         splitProviders: parseList(args.splitproviders),
+        globalGroupEnabled: parseBool(args.globalgroup, true),
         tunEnabled: parseBool(args.tun),
         countryThreshold: parseNumber(args.threshold, 2),
     };

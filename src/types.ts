@@ -9,6 +9,7 @@ export interface ScriptArgs {
     regex?: string;
     inlinelanding?: string;
     splitproviders?: string;
+    globalgroup?: string;
     threshold?: string;
     tun?: string;
 }
@@ -25,6 +26,7 @@ export interface FeatureFlags {
     regexFilter: boolean;
     inlineLandingEnabled: boolean;
     splitProviders: string[];
+    globalGroupEnabled: boolean;
     countryThreshold: number;
     tunEnabled: boolean;
 }
