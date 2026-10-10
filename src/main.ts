@@ -72,6 +72,11 @@ const {
 /**
  * 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称。
  * 展开后除「落地节点」组本身外，不再有任何代理组引用该组。
+ *
+ * GLOBAL 组会被跳过：它的 proxies 列表同时充当 web 面板与部分客户端的
+ * 代理组排序表（https://wiki.metacubex.one/config/proxy-groups/built-in/ ），
+ * 官方要求列全所有代理组。若其中某一项被展开掉，对应代理组就会从排序表中
+ * 消失，在 Clash Verge Rev 等客户端里被排到列表最前。
  * @param groups - 已构建完成的代理组列表（须已包含 GLOBAL 组）
  * @param landingNodes - 落地节点数组，名称按其原顺序插入引用所在位置
  */
@@ -80,7 +85,13 @@ function expandLandingGroupReferences(groups: ProxyGroup[], landingNodes: ProxyN
     if (landingNames.length === 0) return;
 
     for (const group of groups) {
-        if (group.name === PROXY_GROUPS.LANDING || !Array.isArray(group.proxies)) continue;
+        if (
+            group.name === PROXY_GROUPS.LANDING ||
+            group.name === PROXY_GROUPS.GLOBAL ||
+            !Array.isArray(group.proxies)
+        ) {
+            continue;
+        }
         // 赋新数组而非原地修改：多个代理组共享同一份基础列表实例
         group.proxies = group.proxies.flatMap((name) =>
             name === PROXY_GROUPS.LANDING ? landingNames : name
