@@ -19,6 +19,8 @@ export function buildRules(
         tailscale ? `IP-CIDR,fd7a:115c:a1e0::/48,${PROXY_GROUPS.TAILSCALE},no-resolve` : null,
         tailscale ? `DOMAIN-SUFFIX,ts.net,${PROXY_GROUPS.TAILSCALE}` : null,
         `GEOIP,private,DIRECT,no-resolve`,
+        `RULE-SET,TrackerProxy,${PROXY_GROUPS.TRACKER_PROXY}`,
+        `RULE-SET,TrackerDirect,${PROXY_GROUPS.TRACKER_DIRECT}`,
         `RULE-SET,ADBlock,${PROXY_GROUPS.AD_BLOCK}`,
         `RULE-SET,AdditionalFilter,${PROXY_GROUPS.AD_BLOCK}`,
         `RULE-SET,SogouInput,${PROXY_GROUPS.SOGOU_INPUT}`,

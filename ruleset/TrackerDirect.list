@@ -1,0 +1,13 @@
+# 使用本地网络访问的站点
+
+# 内站
+DOMAIN-SUFFIX,byr.pt
+DOMAIN-SUFFIX,open.cd
+
+# 外站
+DOMAIN-SUFFIX,cgpeers.to
+DOMAIN-SUFFIX,hawke.uno
+DOMAIN-SUFFIX,shadowthein.net
+DOMAIN-SUFFIX,thegeeks.click
+DOMAIN-SUFFIX,lovehd.de
+DOMAIN-SUFFIX,wmuu.de

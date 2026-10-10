@@ -17,6 +17,8 @@ export const PROXY_GROUPS = {
     LANDING: "落地节点",
     LOW_COST: "低倍率节点",
     FRONT_PROXY: "前置代理",
+    TRACKER_PROXY: "代理站点",
+    TRACKER_DIRECT: "直连站点",
     STATIC_RESOURCES: "静态资源",
     AI_SERVICE: "AI服务",
     CRYPTO: "加密货币",

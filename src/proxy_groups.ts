@@ -107,6 +107,12 @@ export function buildProxyGroups({
     const twGroups = groupNamesOf("台湾");
     const hkGroups = groupNamesOf("香港");
     const usGroups = groupNamesOf("美国");
+    // DIRECT 优先的落地节点列表：用于「直连站点」这类需要在本地网络访问、
+    // 否则改由落地节点出口的代理组
+    const defaultLandingDirect = buildList(
+        "DIRECT",
+        landingNodes.map((node) => node.name).filter(isNotNull)
+    );
     const hasTailscale = tailscaleNodes.length > 0;
     const groups: Array<ProxyGroup | null> = [
         {
@@ -137,6 +143,18 @@ export function buildProxyGroups({
                   proxies: landingNodes.map((node) => node.name).filter(isNotNull),
               }
             : null,
+        {
+            name: PROXY_GROUPS.TRACKER_PROXY,
+            icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Magic.png`,
+            type: "select",
+            proxies: defaultLandingDirect,
+        },
+        {
+            name: PROXY_GROUPS.TRACKER_DIRECT,
+            icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Bypass.png`,
+            type: "select",
+            proxies: defaultLandingDirect,
+        },
         {
             name: PROXY_GROUPS.STATIC_RESOURCES,
             icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Cloudflare.png`,
