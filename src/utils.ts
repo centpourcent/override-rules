@@ -61,3 +61,26 @@ export function createCaseInsensitiveNodeMatcher(source: string): CaseInsensitiv
 export function isNotNull<T>(v: T | null): v is T {
     return v !== null;
 }
+
+/**
+ * 解析逗号分隔的列表参数，去除首尾空白、丢弃空项并按原值去重。
+ * @description 兼容 Substore 的两种传参形式：`#a=x,y` 字符串，以及 JSON 哈希中的字符串数组。
+ * 未传参或传入布尔值时返回空数组——Substore 会把空值解析为 `true`，不能当成名为 "true" 的列表项。
+ * @param value - 待解析的原始值，可以是任意类型
+ * @returns 去重后的非空字符串数组
+ */
+export function parseList(value: unknown): string[] {
+    const items = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+    return [...new Set(items.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+/**
+ * 转义正则表达式元字符，使字符串仅按字面量匹配。
+ * @description 不转义 `-`（在字符类之外即为字面量）；反引号无法转义——Mihomo 会把
+ * filter/exclude-filter 按反引号拆分为多个正则，含反引号的名称无法表达。
+ * @param value - 待转义的字符串
+ * @returns 转义后的字符串
+ */
+export function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

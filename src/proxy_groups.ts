@@ -2,12 +2,13 @@ import {
     CDN_URL,
     SPEEDTEST_URL,
     LOW_COST_NODE_MATCHER,
-    NODE_SUFFIX,
     PROXY_GROUPS,
     countriesMeta,
 } from "./constants";
+import { createProviderMatcher, getUniqueProviders } from "./node_parser";
+import { getCountryGroupNames } from "./selectors";
+import { buildList, isNotNull } from "./utils";
 import type { BuildProxyGroupsInput, GroupType, ProxyGroup } from "./types";
-import { isNotNull } from "./utils";
 
 interface BuildGroupByTypeInput {
     name: string;
@@ -55,6 +56,25 @@ function buildGroupByType({
 }
 
 /**
+ * 构建地区基础分组在正则模式下的 exclude-filter。
+ * @description 在保留 countriesMeta.excludePattern 的基础上追加提供商的词边界匹配源，
+ * 使基础分组只保留未被任何所配置提供商占用的节点。`|` 结合优先级最低，无需额外分组。
+ * 未配置提供商时原样返回 excludePattern，保证功能关闭时产物与改动前逐字节一致。
+ * @param excludePattern - countriesMeta 中定义的地区排除模式（可选）
+ * @param providerSource - 已配置提供商的匹配源（多个以 `|` 交替），功能关闭时为空字符串
+ * @returns 供 Mihomo `exclude-filter` 使用的正则字符串；无需排除时返回空字符串
+ */
+function buildCountryExcludeFilter(
+    excludePattern: string | undefined,
+    providerSource: string
+): string {
+    if (!providerSource) return excludePattern ?? "";
+
+    const parts = buildList(excludePattern, providerSource);
+    return `(?i)${parts.join("|")}`;
+}
+
+/**
  * 生成所有代理组配置，包含内联的国家地区代理组。
  * @param input - 构建代理组所需的输入参数（详见 BuildProxyGroupsInput）
  * @returns 代理组配置数组
@@ -63,8 +83,8 @@ export function buildProxyGroups({
     allNodes,
     regexFilter,
     groupType,
-    countryNames,
-    countryNodes,
+    countryGroupPlans,
+    splitProviders,
     lowCostNodes,
     tailscaleNodes,
     landing,
@@ -75,9 +95,18 @@ export function buildProxyGroups({
     defaultFallback,
     frontProxySelector,
 }: BuildProxyGroupsInput): ProxyGroup[] {
-    const hasTW = countryNames.includes("台湾");
-    const hasHK = countryNames.includes("香港");
-    const hasUS = countryNames.includes("美国");
+    const providerSource = getUniqueProviders(splitProviders)
+        .map((provider) => createProviderMatcher(provider).source)
+        .join("|");
+    // 取某地区实际会生成的代理组名（含提供商子分组）；基础分组为空时不含基础分组名，
+    // 因此下方引用地区分组的组不会产生悬空引用
+    const groupNamesOf = (country: string): string[] => {
+        const plan = countryGroupPlans.find((item) => item.country === country);
+        return plan ? getCountryGroupNames(plan) : [];
+    };
+    const twGroups = groupNamesOf("台湾");
+    const hkGroups = groupNamesOf("香港");
+    const usGroups = groupNamesOf("美国");
     const hasTailscale = tailscaleNodes.length > 0;
     const groups: Array<ProxyGroup | null> = [
         {
@@ -166,15 +195,19 @@ export function buildProxyGroups({
             name: PROXY_GROUPS.BILIBILI,
             icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/bilibili.png`,
             type: "select",
-            proxies: hasTW && hasHK ? ["DIRECT", `台湾节点`, `香港节点`] : defaultProxiesDirect,
+            proxies:
+                twGroups.length > 0 && hkGroups.length > 0
+                    ? buildList("DIRECT", twGroups, hkGroups)
+                    : defaultProxiesDirect,
         },
         {
             name: PROXY_GROUPS.BAHAMUT,
             icon: `${CDN_URL}/gh/Koolson/Qure@master/IconSet/Color/Bahamut.png`,
             type: "select",
-            proxies: hasTW
-                ? [`台湾节点`, PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL, "DIRECT"]
-                : defaultProxies,
+            proxies:
+                twGroups.length > 0
+                    ? buildList(twGroups, PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL, "DIRECT")
+                    : defaultProxies,
         },
         {
             name: PROXY_GROUPS.YOUTUBE,
@@ -229,9 +262,10 @@ export function buildProxyGroups({
             name: PROXY_GROUPS.TRUTH_SOCIAL,
             icon: `${CDN_URL}/gh/powerfullz/override-rules@master/icons/Truth_Social.png`,
             type: "select",
-            proxies: hasUS
-                ? [`美国节点`, PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL]
-                : defaultProxies,
+            proxies:
+                usGroups.length > 0
+                    ? buildList(usGroups, PROXY_GROUPS.SELECT, PROXY_GROUPS.MANUAL)
+                    : defaultProxies,
         },
         {
             name: PROXY_GROUPS.EHENTAI,
@@ -299,22 +333,49 @@ export function buildProxyGroups({
                       : { "include-all": true as const, filter: LOW_COST_NODE_MATCHER.pattern },
               })
             : null,
-        ...countryNames.map((country) => {
-            const meta = countriesMeta[country];
-            if (!meta) return null;
-            const nodeSource = regexFilter
+        ...countryGroupPlans.flatMap((plan) => {
+            const meta = countriesMeta[plan.country];
+            if (!meta) return [];
+
+            // 基础分组：正则模式下按正则动态筛选，并排除已配置提供商的节点；
+            // 枚举模式下直接列出剩余节点
+            const excludeFilter = buildCountryExcludeFilter(meta.excludePattern, providerSource);
+            const baseNodeSource: Pick<
+                ProxyGroup,
+                "proxies" | "include-all" | "filter" | "exclude-filter"
+            > = regexFilter
                 ? {
-                      "include-all": true as const,
+                      "include-all": true,
                       filter: meta.pattern,
-                      ...(meta.excludePattern ? { "exclude-filter": meta.excludePattern } : {}),
+                      ...(excludeFilter ? { "exclude-filter": excludeFilter } : {}),
                   }
-                : { proxies: countryNodes[country]?.map((n) => n.name).filter(isNotNull) };
-            return buildGroupByType({
-                name: `${country}${NODE_SUFFIX}`,
-                icon: meta.icon,
-                groupType,
-                nodeSource,
-            });
+                : { proxies: plan.baseNodes.map((node) => node.name).filter(isNotNull) };
+
+            // 提供商子分组始终显式枚举节点：白名单正则无法表达「同时满足地区与提供商」的交集
+            const subGroups = plan.subGroups.map((subGroup) =>
+                buildGroupByType({
+                    name: subGroup.name,
+                    icon: meta.icon,
+                    groupType,
+                    nodeSource: {
+                        proxies: subGroup.nodes.map((node) => node.name).filter(isNotNull),
+                    },
+                })
+            );
+
+            return [
+                ...subGroups,
+                ...(plan.baseNodes.length > 0
+                    ? [
+                          buildGroupByType({
+                              name: plan.baseName,
+                              icon: meta.icon,
+                              groupType,
+                              nodeSource: baseNodeSource,
+                          }),
+                      ]
+                    : []),
+            ];
         }),
     ];
 

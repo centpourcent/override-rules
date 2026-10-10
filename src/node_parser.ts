@@ -1,5 +1,11 @@
 import { LOW_COST_NODE_MATCHER, countriesMeta } from "./constants";
-import type { ProxyNode } from "./types";
+import { createCaseInsensitiveNodeMatcher, escapeRegExp } from "./utils";
+import type {
+    CaseInsensitiveNodeMatcher,
+    ProviderNodeGroup,
+    ProviderPartition,
+    ProxyNode,
+} from "./types";
 
 const COUNTRY_REGEX_MAP = Object.fromEntries(
     Object.entries(countriesMeta).map(([country, meta]) => {
@@ -106,4 +112,71 @@ export function getActiveCountryNames(
     });
 
     return filtered.map(([country]) => country);
+}
+
+/**
+ * 创建单个提供商的词边界匹配器。
+ * 名称两侧必须是空白、`-` 或字符串首尾，因此 `aaaCloud` 不会匹配 `aaaCloudPlus`。
+ * @description 不使用 `\b`：其在 JS（仅 ASCII）与 Mihomo 的 .NET 风格引擎（Unicode）下语义不同。
+ * 返回的 `source` 可直接并入 Mihomo 的 `exclude-filter`。
+ * @param provider - 提供商名称
+ * @returns 大小写不敏感的匹配器对象
+ */
+export function createProviderMatcher(provider: string): CaseInsensitiveNodeMatcher {
+    return createCaseInsensitiveNodeMatcher(
+        String.raw`(?:^|[\s\-])${escapeRegExp(provider)}(?:[\s\-]|$)`
+    );
+}
+
+/**
+ * 按大小写不敏感去重提供商名称，保留首次出现的拼写。
+ * @description 防止 `aaaCloud,AAACLOUD` 生成两个同名分组。
+ * @param providers - 原始提供商名称列表
+ * @returns 去重后的提供商名称列表
+ */
+export function getUniqueProviders(providers: string[]): string[] {
+    const seen = new Set<string>();
+    return providers.filter((provider) => {
+        const key = provider.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+/**
+ * 将节点按所配置的提供商归类。
+ * @description 采用独立匹配而非首个命中即止：一个节点可同时归属多个提供商，
+ * 因此结果与 `providers` 的书写顺序无关。只返回含节点的分组。
+ * @param nodes - 待归类的节点数组
+ * @param providers - 已配置的提供商名称列表
+ * @returns 各提供商的分组，以及未被任何提供商匹配的剩余节点
+ */
+export function partitionNodesByProvider(
+    nodes: ProxyNode[],
+    providers: string[]
+): ProviderPartition {
+    const uniqueProviders = getUniqueProviders(providers);
+    const matchers = uniqueProviders.map((provider) => createProviderMatcher(provider).regex);
+    const groups: ProviderNodeGroup[] = uniqueProviders.map((provider) => ({
+        provider,
+        nodes: [],
+    }));
+    const rest: ProxyNode[] = [];
+
+    for (const node of nodes) {
+        const name = node.name || "";
+        const matched = groups.filter((_, index) => matchers[index].test(name));
+
+        if (matched.length === 0) {
+            rest.push(node);
+            continue;
+        }
+
+        for (const group of matched) {
+            group.nodes.push(node);
+        }
+    }
+
+    return { groups: groups.filter((group) => group.nodes.length > 0), rest };
 }

@@ -40,19 +40,22 @@ flowchart TD
     end
 
     subgraph Builders["4. 配置构建"]
-        ACN --> BBL["buildBaseLists()"]
+        ACN --> BCGP["buildCountryGroupPlans()"]
+        CN --> BCGP
+        FF --> BCGP
+        BCGP --> CGP["countryGroupPlans"]
+        CGP --> BBL["buildBaseLists()"]
         LAND --> BBL
         LCN --> BBL
         TS --> BPG
         NLN --> BBL
         BBL --> BL["BaseLists"]
         BL --> BPG["buildProxyGroups()"]
-        ACN --> BPG
-        CN --> BPG
+        CGP --> BPG
         LAND --> BPG
         LN --> BPG
         LCN --> BPG
-        BPG --> PG["proxy-groups<br/>(含内联 country 代理组)"]
+        BPG --> PG["proxy-groups<br/>(含内联 country 代理组与提供商子分组)"]
     end
 
     subgraph Output["5. 最终组装 (main.ts)"]
@@ -91,15 +94,15 @@ flowchart TD
 |------|------|----------|
 | `src/args.ts` | URL 参数解析与默认值处理 | `buildFeatureFlags()` |
 | `src/constants.ts` | 常量集中管理（国家元数据、代理组名称、节点匹配器、CDN 地址等） | `countriesMeta`, `NODE_SUFFIX`, `PROXY_GROUPS`, `LOW_COST_NODE_MATCHER` |
-| `src/node_parser.ts` | 多维度节点分类与过滤 | `parseNodesByLanding()`, `parseCountries()`, `parseLowCost()`, `parseTailscale()`, `getActiveCountryNames()` |
-| `src/selectors.ts` | 代理选择列表构建（各策略组的基础选项列表） | `buildBaseLists()` |
+| `src/node_parser.ts` | 多维度节点分类与过滤 | `parseNodesByLanding()`, `parseCountries()`, `parseLowCost()`, `parseTailscale()`, `getActiveCountryNames()`, `partitionNodesByProvider()`, `createProviderMatcher()`, `getUniqueProviders()` |
+| `src/selectors.ts` | 代理选择列表构建；地区分组计划的构建与命名 | `buildBaseLists()`, `buildCountryGroupPlans()`, `getCountryGroupNames()` |
 | `src/proxy_groups.ts` | 代理组定义生成（含国家/地区、金融服务和 Tailscale 代理组） | `buildProxyGroups()` |
 | `src/rules.ts` | 路由规则构建 | `buildRules()` |
 | `src/dns.ts` | DNS、Fake-IP 过滤和上游 DNS 字段继承 | `buildDns()`, `snifferConfig` |
 | `src/tun.ts` | TUN 模式配置构建 | `buildTunConfig()` |
 | `src/rule_providers.ts` | Rule Provider 定义（外部规则集引用） | `ruleProviders` |
-| `src/types.ts` | TypeScript 类型与接口定义 | `FeatureFlags`, `ProxyNode`, `ProxyGroup`, `ClashConfig`, `BaseLists`, `BuildBaseListsInput`, `BuildProxyGroupsInput` 等 |
-| `src/utils.ts` | 通用工具函数 | `buildList()`, `parseBool()`, `parseNumber()`, `isNotNull()` |
+| `src/types.ts` | TypeScript 类型与接口定义 | `FeatureFlags`, `ProxyNode`, `ProxyGroup`, `ClashConfig`, `BaseLists`, `CountryGroupPlan`, `BuildBaseListsInput`, `BuildProxyGroupsInput` 等 |
+| `src/utils.ts` | 通用工具函数 | `buildList()`, `parseBool()`, `parseNumber()`, `parseList()`, `escapeRegExp()`, `isNotNull()` |
 | `scripts/yaml_generator/generator.ts` | 静态 YAML 覆写文件生成器 | 穷举参数组合，生成 `yamls/` 目录下的 192 个 YAML 配置文件；支持 `LIMIT_COMBOS` 限制生成数量 |
 
 ---
@@ -139,8 +142,21 @@ flowchart TD
 ### 数据流
 
 - **减少中间类型**：`parseCountries()` 直接返回 `Record<string, ProxyNode[]>` 而非引入额外的中间结构。`getActiveCountryNames()` 返回纯净的国家名称（不含 `"节点"` 后缀）。国家代理组的构建逻辑已内联于 `buildProxyGroups()` 中，不再需要独立的 `buildCountryProxyGroups()` 函数。
-- **`NODE_SUFFIX` 仅在展示层添加**：`"节点"` 后缀（如「香港」→「香港节点」）只在 `buildBaseLists()` 和 `buildProxyGroups()` 中拼接，分类层完全不涉及此概念。
+- **`NODE_SUFFIX` 仅在展示层添加**：`"节点"` 后缀（如「香港」→「香港节点」）只在 `selectors.ts` 的 `buildCountryGroupPlans()` 中拼接（基础分组与提供商子分组名），其余模块一律消费现成的分组名，分类层完全不涉及此概念。
+- **`countryGroupPlans` 是刻意的共享中间类型**：分组名、成员划分与「基础分组是否为空」的判定都收口在 `buildCountryGroupPlans()`，由 `buildBaseLists()` 与 `buildProxyGroups()` 共同消费。此前两处各自用 `country + NODE_SUFFIX` 推导，正是这种重复会让新增分组维度时漏改一处。
 - **数据优于标志**：接收节点信息的参数统一使用具体数据（如 `landingNodes: ProxyNode[]`、`countryNodes: Record<string, ProxyNode[]>`）而非布尔值。布尔标志（如 `landing`）由数据推导得出，保证了判定依据的可追溯性。
+
+### 提供商拆分（splitproviders）
+
+节点名遵循 `<地区旗emoji> <PROVIDER> - <REGION> <INDEX> [<REMARK>]` 的约定。传入 `splitproviders` 后，每个活跃地区被拆分为「各提供商子分组 + 基础分组」：子分组名形如 `香港节点（aaaCloud）`，组类型与地区分组一致；基础分组 `香港节点` 只保留未被任何所配置提供商匹配的节点，为空则不生成。
+
+几个刻意的设计选择：
+
+- **匹配用显式词边界而非 `\b`**：`(?:^|[\s\-])TOKEN(?:[\s\-]|$)`。`\b` 在 JS 中仅 ASCII 感知，在 Mihomo 所用的 .NET 风格正则引擎中则 Unicode 感知，跨语言会得出不同结论；显式边界让两份实现一致。
+- **子分组始终显式枚举节点**，两种模式皆然。Mihomo 的 `filter` 是对整个名称匹配的单个正则，无法表达「同时满足地区与提供商」的交集；靠环视表达式既不可移植，又有让客户端加载时 panic 的风险。
+- **正则模式下只扩展基础分组的 `exclude-filter`**，把提供商源与 `countriesMeta.excludePattern` 合并为一条正则；未配置提供商时原样返回 `excludePattern`，保证功能关闭时产物逐字节不变。
+- **`threshold` 只作用于地区总量**，子分组只要有节点就生成。若按子分组门槛过滤会静默丢节点：默认 `threshold=2` 时，某地区 3 个节点按 2/1 拆分，单节点子分组被丢弃而基础分组又排除了这些节点，该节点将不属于任何地区组。保持「基础分组 ∪ 子分组 = 该地区全部合格节点」的分区不变式更重要。
+- **子分组在 `buildProxyGroups()` 内创建**，因此自动进入 `GLOBAL` 的排序表，不会重蹈「有代理组未列入 GLOBAL 导致客户端排序错乱」的覆辙。
 
 ### args.ts 的默认值
 
@@ -149,7 +165,8 @@ flowchart TD
 - `grouptype=1`（`url-test`）；若未指定 `grouptype`，仍兼容旧的 `loadbalance` 参数；
 - `fakeip=true`；
 - `threshold=2`，少于两个节点的地区不会生成地区组；
-- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun`、`inlinelanding` 默认关闭。
+- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun`、`inlinelanding` 默认关闭；
+- `splitproviders` 默认为空列表（功能关闭）——它是本脚本唯一的列表型参数，不走布尔解析。
 
 布尔参数接受 `true`/`false` 和 `1`/`0` 形式。
 
@@ -177,7 +194,7 @@ flowchart TD
 | `tun` | true / false | 2 |
 | `grouptype` | select / url-test / load-balance | 3 |
 
-共计 2⁶ × 3 = 192 个 YAML 文件。`landing` 不在 FLAGS 中——YAML 生成器使用 `fake_proxies.json` 中的模拟节点数据自动判定。生成时固定启用 `regex: true`，因为静态配置无法预知实际订阅的节点名称。
+共计 2⁶ × 3 = 192 个 YAML 文件。`landing` 不在 FLAGS 中——YAML 生成器使用 `fake_proxies.json` 中的模拟节点数据自动判定。生成时固定启用 `regex: true`，因为静态配置无法预知实际订阅的节点名称。`splitproviders` 同理不在 FLAGS 中——生成器不会传入该参数，静态 YAML 输出保持不变。
 
 ---
 

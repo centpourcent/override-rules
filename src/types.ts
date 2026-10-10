@@ -8,6 +8,7 @@ export interface ScriptArgs {
     quic?: string;
     regex?: string;
     inlinelanding?: string;
+    splitproviders?: string;
     threshold?: string;
     tun?: string;
 }
@@ -23,6 +24,7 @@ export interface FeatureFlags {
     quicEnabled: boolean;
     regexFilter: boolean;
     inlineLandingEnabled: boolean;
+    splitProviders: string[];
     countryThreshold: number;
     tunEnabled: boolean;
 }
@@ -198,6 +200,40 @@ export interface CaseInsensitiveNodeMatcher {
     pattern: string;
 }
 
+/** 按提供商归类的结果：某个提供商的节点集合。 */
+export interface ProviderNodeGroup {
+    provider: string;
+    nodes: ProxyNode[];
+}
+
+/** 将节点按所配置提供商归类的结果：各提供商的分组，以及未被任何提供商匹配的剩余节点。 */
+export interface ProviderPartition {
+    groups: ProviderNodeGroup[];
+    rest: ProxyNode[];
+}
+
+/** 某个提供商在某个地区内的子分组计划。 */
+export interface ProviderSubGroupPlan extends ProviderNodeGroup {
+    name: string;
+}
+
+/**
+ * 单个地区的分组计划：基础分组名、其剩余节点，以及各提供商子分组。
+ * 基础分组的节点为空时不生成该组，判据为 `baseNodes.length > 0`。
+ */
+export interface CountryGroupPlan {
+    country: string;
+    baseName: string;
+    baseNodes: ProxyNode[];
+    subGroups: ProviderSubGroupPlan[];
+}
+
+export interface BuildCountryGroupPlansInput {
+    countryNames: string[];
+    countryNodes: Record<string, ProxyNode[]>;
+    splitProviders: string[];
+}
+
 export interface BaseLists {
     defaultProxies: string[];
     defaultProxiesDirect: string[];
@@ -209,7 +245,7 @@ export interface BaseLists {
 export interface BuildBaseListsInput {
     landing: boolean;
     lowCostNodes: ProxyNode[];
-    countryNames: string[];
+    countryGroupNames: string[];
     nonLandingNodes: ProxyNode[];
     regexFilter: boolean;
 }
@@ -218,8 +254,8 @@ export interface BuildProxyGroupsInput {
     allNodes: string[];
     regexFilter: boolean;
     groupType: GroupType;
-    countryNames: string[];
-    countryNodes: Record<string, ProxyNode[]>;
+    countryGroupPlans: CountryGroupPlan[];
+    splitProviders: string[];
     lowCostNodes: ProxyNode[];
     landing: boolean;
     landingNodes: ProxyNode[];

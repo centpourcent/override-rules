@@ -15,6 +15,7 @@ https://github.com/powerfullz/override-rules
 - threshold: 地区节点数量小于该值时不显示分组 (默认 0)
 - regex: 使用正则过滤模式（include-all + filter）写入各地区代理组，而非直接枚举节点名称（默认 false）
 - inlinelanding: 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称（默认 false）
+- splitproviders: 按订阅提供商拆分地区代理组，逗号分隔的提供商名称（默认空，功能关闭）
 
 源码已迁移至 `src/*.ts`。
 */
@@ -33,7 +34,7 @@ import { buildRules } from "./rules";
 import { ruleProviders } from "./rule_providers";
 import { buildDns, snifferConfig } from "./dns";
 import { buildTunConfig } from "./tun";
-import { buildBaseLists } from "./selectors";
+import { buildBaseLists, buildCountryGroupPlans, getCountryGroupNames } from "./selectors";
 import { isNotNull } from "./utils";
 import type { ClashConfig, ProxyGroup, ProxyNode, ScriptArgs } from "./types";
 
@@ -65,6 +66,7 @@ const {
     quicEnabled,
     regexFilter,
     inlineLandingEnabled,
+    splitProviders,
     tunEnabled,
     countryThreshold,
 } = buildFeatureFlags(rawArgs);
@@ -108,6 +110,12 @@ function main(config: ClashConfig): ClashConfig {
     const countryNodes = parseCountries(landing ? nonLandingNodes : config.proxies);
     const lowCostNodes = parseLowCost(landing ? nonLandingNodes : config.proxies);
     const countryNames = getActiveCountryNames(countryNodes, countryThreshold);
+    const countryGroupPlans = buildCountryGroupPlans({
+        countryNames,
+        countryNodes,
+        splitProviders,
+    });
+    const countryGroupNames = countryGroupPlans.flatMap((plan) => getCountryGroupNames(plan));
     const allNodes = config.proxies.map((node) => node.name);
     const tailscaleNodes = parseTailscale(config.proxies);
     const hasTailscale = tailscaleNodes.length > 0;
@@ -121,7 +129,7 @@ function main(config: ClashConfig): ClashConfig {
     } = buildBaseLists({
         landing,
         lowCostNodes,
-        countryNames,
+        countryGroupNames,
         nonLandingNodes,
         regexFilter,
     });
@@ -130,8 +138,8 @@ function main(config: ClashConfig): ClashConfig {
         allNodes,
         regexFilter,
         groupType,
-        countryNames,
-        countryNodes,
+        countryGroupPlans,
+        splitProviders,
         lowCostNodes,
         tailscaleNodes,
         landing,
