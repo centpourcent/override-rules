@@ -37,8 +37,23 @@ function prioritizeLowCost(ctx: GroupBuildContext): ProxyGroupCandidate[] {
     ];
 }
 
+/** Tracker 站点的候选：优先走本地网络，否则由落地节点出口。 */
+function directThenLanding(ctx: GroupBuildContext): ProxyGroupCandidate[] {
+    return ["DIRECT", ...ctx.nodes.landingNodes.map((node) => node.name)];
+}
+
 /** 服务代理组，按输出顺序排列。 */
 export const serviceGroups: ServiceGroupDef[] = [
+    {
+        name: PROXY_GROUPS.TRACKER_PROXY,
+        icon: ICONS.trackerProxy,
+        proxies: directThenLanding,
+    },
+    {
+        name: PROXY_GROUPS.TRACKER_DIRECT,
+        icon: ICONS.trackerDirect,
+        proxies: directThenLanding,
+    },
     {
         name: PROXY_GROUPS.STATIC_RESOURCES,
         icon: ICONS.staticResources,

@@ -97,6 +97,22 @@ export const ruleSets = {
         url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt",
         path: "./ruleset/GFWList.yaml",
     },
+    TrackerProxy: {
+        type: "http",
+        behavior: "classical",
+        format: "text",
+        interval: 86400,
+        url: `${CDN_URL}/gh/centpourcent/override-rules@personal/ruleset/TrackerProxy.list`,
+        path: "./ruleset/TrackerProxy.list",
+    },
+    TrackerDirect: {
+        type: "http",
+        behavior: "classical",
+        format: "text",
+        interval: 86400,
+        url: `${CDN_URL}/gh/centpourcent/override-rules@personal/ruleset/TrackerDirect.list`,
+        path: "./ruleset/TrackerDirect.list",
+    },
 } satisfies Record<string, RuleProvider>;
 
 /** `ADBlock` 的替代下载源（1=adrules.top，3=AWAvenue；2 使用 `ruleSets.ADBlock`）。 */
