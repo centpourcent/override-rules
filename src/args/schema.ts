@@ -20,6 +20,8 @@ export const ARG_DEFAULTS = {
     quicEnabled: false,
     /** 使用正则过滤模式。 */
     regexFilter: false,
+    /** 将其他代理组对「落地节点」组的引用展开为具体节点。 */
+    inlineLandingEnabled: false,
     /** 启用 TUN 模式。 */
     tunEnabled: false,
     /** 去广告规则来源：0=关闭，1=adrules.top，2=217heidai，3=AWAvenue。 */

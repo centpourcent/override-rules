@@ -81,3 +81,58 @@ describe("Tracker 分流", () => {
         assert.ok(directIndex < rules.indexOf(`RULE-SET,ADBlock,${PROXY_GROUPS.AD_BLOCK}`));
     });
 });
+
+describe("inlinelanding", () => {
+    it("默认保留对落地节点组的引用", () => {
+        const result = run({}, GROUPED);
+        assert.ok(group(result, PROXY_GROUPS.SELECT)?.proxies?.includes(PROXY_GROUPS.LANDING));
+    });
+
+    it("在原位置展开为落地节点名称，并保持其顺序", () => {
+        const result = run({ inlinelanding: "true" }, GROUPED);
+
+        assert.deepEqual(group(result, PROXY_GROUPS.FALLBACK)?.proxies, [
+            "落地A",
+            "落地B",
+            "香港节点",
+            "美国节点",
+        ]);
+    });
+
+    it("除落地节点组自身与 GLOBAL 外不再有组引用落地节点组", () => {
+        const result = run({ inlinelanding: "true" }, GROUPED);
+        const referrers = result["proxy-groups"]
+            ?.filter((item) => item.proxies?.includes(PROXY_GROUPS.LANDING))
+            .map((item) => item.name);
+
+        assert.deepEqual(referrers, [PROXY_GROUPS.GLOBAL]);
+    });
+
+    it("GLOBAL 保留完整的代理组排序表", () => {
+        const result = run({ inlinelanding: "true" }, GROUPED);
+        const groups = result["proxy-groups"] ?? [];
+
+        assert.deepEqual(
+            group(result, PROXY_GROUPS.GLOBAL)?.proxies,
+            groups.slice(0, -1).map((item) => item.name)
+        );
+    });
+
+    it("展平模式下同样展开", () => {
+        const result = run(
+            { inlinelanding: "true" },
+            { proxies: [{ name: "香港01" }, { name: "香港02" }, LANDING_A] }
+        );
+
+        assert.deepEqual(group(result, PROXY_GROUPS.FALLBACK)?.proxies, [
+            "落地A",
+            "香港01",
+            "香港02",
+        ]);
+    });
+
+    it("无落地节点时输出不变", () => {
+        const config = { proxies: [{ name: "香港01" }, { name: "美国01" }] };
+        assert.deepEqual(run({ inlinelanding: "true" }, config), run({}, config));
+    });
+});

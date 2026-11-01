@@ -15,6 +15,7 @@ https://github.com/powerfullz/override-rules
 - threshold: 地区节点数量小于该值时不显示分组（默认 2）
 - regex: 使用正则过滤模式（include-all + filter）写入各地区代理组，而非直接枚举节点名称（默认 false）
 - adblock: 去广告规则（0=关闭，1=adrules.top，2=217heidai，3=AWAvenue，默认 3）
+- inlinelanding: 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称（默认 false）
 
 源码位于 `src/`，入口为 `src/main.ts`。
 */

@@ -49,6 +49,7 @@ export function buildFeatureFlags(args: ScriptArgs): FeatureFlags {
         fakeIPEnabled: parseBool(args.fakeip, ARG_DEFAULTS.fakeIPEnabled),
         quicEnabled: parseBool(args.quic, ARG_DEFAULTS.quicEnabled),
         regexFilter: parseBool(args.regex, ARG_DEFAULTS.regexFilter),
+        inlineLandingEnabled: parseBool(args.inlinelanding, ARG_DEFAULTS.inlineLandingEnabled),
         tunEnabled: parseBool(args.tun, ARG_DEFAULTS.tunEnabled),
         countryThreshold: parseNumber(args.threshold, ARG_DEFAULTS.countryThreshold),
         adblockSource: parseAdblockSource(args),

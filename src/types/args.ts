@@ -12,6 +12,7 @@ export interface ScriptArgs {
     fakeip?: string;
     quic?: string;
     regex?: string;
+    inlinelanding?: string;
     threshold?: string;
     tun?: string;
     adblock?: string;
@@ -32,6 +33,7 @@ export interface FeatureFlags {
     fakeIPEnabled: boolean;
     quicEnabled: boolean;
     regexFilter: boolean;
+    inlineLandingEnabled: boolean;
     countryThreshold: number;
     tunEnabled: boolean;
     adblockSource: AdblockSource;
