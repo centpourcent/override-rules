@@ -71,13 +71,14 @@ flowchart TD
 | `src/catalog/endpoints.ts` | CDN 与测速端点 | `CDN_URL`, `SPEEDTEST_URL` |
 | `src/catalog/dns.ts` | DNS 默认服务器与 fake-ip 过滤域名 | `DEFAULT_NAMESERVERS`, `DEFAULT_FALLBACK_DNS`, `FAKE_IP_FILTER` |
 | `src/catalog/icons.ts` | 代理组图标集中定义 | `ICONS` |
-| `src/catalog/group-names.ts` | 代理组名称与命名辅助 | `PROXY_GROUPS`, `NODE_SUFFIX`, `countryGroupName()` |
+| `src/catalog/group-names.ts` | 代理组名称与命名辅助 | `PROXY_GROUPS`, `NODE_SUFFIX`, `countryGroupName()`, `regionGroupNames()` |
 | `src/catalog/countries.ts` | 国家/地区元数据；派生匹配正则 | `countriesMeta`, `countryRegexMap`, `countryExcludeRegexMap` |
 | `src/catalog/low-cost.ts` | 低倍率节点匹配器 | `LOW_COST_NODE_MATCHER` |
 | `src/catalog/service-groups.ts` | 服务代理组的声明式目录 | `serviceGroups` |
 | `src/catalog/rule-sets.ts` | Rule Provider 注册表（强类型键） | `ruleSets`, `RuleSetKey`, `ruleSet()` |
 | `src/analysis/classify.ts` | 节点多维度分类 | `analyzeNodes()` |
 | `src/analysis/active-countries.ts` | 地区阈值过滤与权重排序 | `getActiveCountryNames()` |
+| `src/analysis/providers.ts` | 按订阅提供商拆分地区节点 | `splitCountriesByProvider()`, `buildProviderExcludeFilter()` |
 | `src/domain/proxy-group.ts` | 代理组构造工厂（字段顺序与空候选兜底集中管理） | `buildGroupByType()`, `selectGroup()`, `urlTestGroup()`, `fallbackGroup()` |
 | `src/builders/selectors.ts` | 各策略组的基础候选列表 | `buildBaseLists()` |
 | `src/builders/proxy-groups.ts` | 代理组组装（前置/服务/尾部/地区） | `buildProxyGroups()` |
@@ -88,9 +89,9 @@ flowchart TD
 | `src/builders/tun.ts` | TUN 模式配置 | `buildTunConfig()` |
 | `src/builders/full-config.ts` | `full=true` 时追加的完整内核参数 | `buildFullConfig()` |
 | `src/builders/geox.ts` | GeoIP/GeoSite/MMDB/ASN 数据源地址 | `geoxUrl` |
-| `src/builders/config.ts` | 最终配置组装（含 GLOBAL 组追加） | `assembleConfig()` |
-| `src/utils/primitives.ts` | 通用工具函数 | `buildList()`, `parseBool()`, `parseNumber()`, `isNotNull()` |
-| `src/utils/regex.ts` | 正则匹配工具 | `createCaseInsensitiveNodeMatcher()` |
+| `src/builders/config.ts` | 最终配置组装（含 GLOBAL 组追加与落地节点引用展开） | `assembleConfig()` |
+| `src/utils/primitives.ts` | 通用工具函数 | `buildList()`, `parseBool()`, `parseNumber()`, `parseList()`, `isNotNull()` |
+| `src/utils/regex.ts` | 正则匹配工具 | `createCaseInsensitiveNodeMatcher()`, `escapeRegExp()` |
 | `scripts/yaml_generator/generator.ts` | 静态 YAML 覆写文件生成器 | 穷举参数组合，生成 `yamls/` 目录下的 192 个 YAML 配置文件；支持 `LIMIT_COMBOS` 限制生成数量 |
 | `tests/` | 轻量单元测试（`node --import tsx --test`） | 覆盖参数解析、节点分类、代理组构造、规则/DNS/TUN、最终组装 |
 
@@ -126,7 +127,7 @@ flowchart TD
 
 这些分类维度相互独立，构建阶段通过组合它们来生成完整的代理组树。
 
-分类结果还会派生 `regionLayout`：通过 `threshold` 的地区数 ≥ 2 时为 `grouped`，为每个地区生成 `${地区}节点` 组，并保留「手动选择」组；不足 2 个时为 `flattened`，不生成任何地区组，`选择代理`、`自动选择`、`故障转移` 直接引用非落地节点（不含 Tailscale），同时不再生成与 `选择代理` 高度重合的「手动选择」组。服务组同样按 `regionLayout.groupedCountries` 判断目标地区组是否存在，避免引用已展平的地区组；展平模式下服务组的 `defaultProxies` / `defaultProxiesDirect` 也不再引用 `选择代理`，而是直接携带同一份展平节点来源。若存在「低倍率节点」组，「静态资源」组会将其置于候选首位，其余候选保持正常顺序。
+分类结果还会派生 `regionLayout`：拆分后实际生成的地区组数 ≥ 2 时为 `grouped`（未配置 `splitproviders` 时即通过 `threshold` 的地区数），为每个地区生成 `${地区}节点` 组，并保留「手动选择」组；不足 2 个时为 `flattened`，不生成任何地区组，`选择代理`、`自动选择`、`故障转移` 直接引用非落地节点（不含 Tailscale），同时不再生成与 `选择代理` 高度重合的「手动选择」组。服务组同样按 `regionLayout.groupedCountries` 判断目标地区组是否存在，避免引用已展平的地区组；展平模式下服务组的 `defaultProxies` / `defaultProxiesDirect` 也不再引用 `选择代理`，而是直接携带同一份展平节点来源。若存在「低倍率节点」组，「静态资源」组会将其置于候选首位，其余候选保持正常顺序。
 
 ### Tailscale 集成
 
@@ -142,17 +143,36 @@ flowchart TD
 ### 数据流
 
 - **分类结果即唯一数据源**：`analyzeNodes()` 一次性返回 `NodeAnalysis`，后续构建阶段不再回读 `config.proxies`，保证判定依据可追溯。
-- **`NODE_SUFFIX` 仅在展示层添加**：`"节点"` 后缀（如「香港」→「香港节点」）只在 `buildBaseLists()` 与 `buildProxyGroups()` 中通过 `countryGroupName()` 拼接，分类层完全不涉及此概念。
+- **`NODE_SUFFIX` 仅在展示层添加**：`"节点"` 后缀（如「香港」→「香港节点」）统一通过 `countryGroupName()` 拼接；分类层只有 `analysis/providers.ts` 在生成提供商子分组名时用到它。
 - **数据优于标志**：接收节点信息的参数统一使用具体数据（如 `landingNodes: ProxyNode[]`、`countryNodes: Record<string, ProxyNode[]>`）而非布尔值；布尔标志（如 `landing`）由数据推导得出。
+
+### 提供商拆分（splitproviders）
+
+节点名遵循 `<地区旗emoji> <PROVIDER> - <REGION> <INDEX> [<REMARK>]` 的约定。传入 `splitproviders` 后，每个活跃地区被拆分为「各提供商子分组 + 基础分组」：子分组名形如 `香港节点（aaaCloud）`，组类型与地区分组一致；基础分组 `香港节点` 只保留未被任何所配置提供商匹配的节点，为空则不生成。
+
+拆分结果写入可选字段 `regionLayout.providerSplits`，所有消费地区组名的位置都通过 `regionGroupNames()` 取名，避免各处分别推导。几个刻意的设计选择：
+
+- **匹配用显式词边界而非 `\b`**：`(?:^|[\s\-])TOKEN(?:[\s\-]|$)`。`\b` 在 JS 中仅 ASCII 感知，在 Mihomo 所用的 .NET 风格正则引擎中则 Unicode 感知，跨语言会得出不同结论。
+- **子分组始终显式枚举节点**，两种模式皆然。Mihomo 的 `filter` 是对整个名称匹配的单个正则，无法表达「同时满足地区与提供商」的交集。
+- **正则模式下只扩展基础分组的 `exclude-filter`**，用 `(?i:...)` 限定大小写不敏感的范围后，与地区 `excludePattern`、Tailscale 过滤规则拼接；未配置提供商时不追加，保证功能关闭时产物不变。
+- **`threshold` 只作用于地区总量**，子分组只要有节点就生成。若按子分组门槛过滤，单节点子分组会被丢弃而基础分组又排除了这些节点，该节点将不属于任何地区组。
+- **展平按拆分后的地区组数判定**：单个地区拆出多个子分组时，地区组与「选择代理」不再重合，保留分组结构才有意义；只生成 1 个组时仍然展平。
+
+### GLOBAL 代理组（globalgroup）
+
+Mihomo 的 `GLOBAL` 是**内置代理组**：即使配置里完全不定义，内核也会生成一个 `GLOBAL` 并自动纳入所有代理与代理组。在配置中定义它的价值在于**顺序**——web 面板与部分客户端（如 Clash Verge Rev）会用 `GLOBAL.proxies` 中代理组的书写顺序来排列面板，而内核 `/proxies` 接口返回的组是无序的。这也是 `inlinelanding` 展开时必须跳过 GLOBAL 的原因，否则被展开掉的组会从排序表中消失，在客户端里被排到列表最前。
+
+`globalgroup=false` 时脚本只是不再定义它——内核内置的那个依然存在，成员与顺序回归内核默认。该开关用于规避个别客户端的 GLOBAL 相关兼容问题，代价是面板排序失去依据。
 
 ### args 的默认值
 
 所有 URL 参数都有明确的默认值，集中在 `src/args/schema.ts` 的 `ARG_DEFAULTS`，由 `buildFeatureFlags()` 解析并回填。当前默认值包括：
 
 - `grouptype=1`（`url-test`）；若未指定 `grouptype`，仍兼容旧的 `loadbalance` 参数；
-- `fakeip=true`；
+- `fakeip=true`、`globalgroup=true`；
 - `threshold=2`，少于两个节点的地区不会生成地区组；过滤后不足 2 个地区时整体展平；
-- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun` 默认关闭。
+- `ipv6`、`full`、`keepalive`、`quic`、`regex`、`tun`、`inlinelanding` 默认关闭；
+- `splitproviders` 默认为空列表（功能关闭），它是本脚本唯一的列表型参数，不走布尔解析。
 
 布尔参数接受 `true`/`false` 和 `1`/`0` 形式。
 
@@ -180,7 +200,7 @@ flowchart TD
 | `tun` | true / false | 2 |
 | `grouptype` | select / url-test / load-balance | 3 |
 
-共计 2⁶ × 3 = 192 个 YAML 文件。`landing` 不在 FLAGS 中——YAML 生成器使用 `fake_proxies.json` 中的模拟节点数据自动判定。生成时固定启用 `regex: true`，因为静态配置无法预知实际订阅的节点名称。模拟数据覆盖多个地区，因此静态 YAML 产物仍走分组模式；展平分支由单元测试覆盖。
+共计 2⁶ × 3 = 192 个 YAML 文件。`landing` 不在 FLAGS 中——YAML 生成器使用 `fake_proxies.json` 中的模拟节点数据自动判定。生成时固定启用 `regex: true`，因为静态配置无法预知实际订阅的节点名称。模拟数据覆盖多个地区，因此静态 YAML 产物仍走分组模式；展平分支由单元测试覆盖。`inlinelanding`、`splitproviders`、`globalgroup` 同样不在 FLAGS 中，静态 YAML 输出不受它们影响。
 
 ---
 
