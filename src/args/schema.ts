@@ -22,6 +22,8 @@ export const ARG_DEFAULTS = {
     regexFilter: false,
     /** 将其他代理组对「落地节点」组的引用展开为具体节点。 */
     inlineLandingEnabled: false,
+    /** 在配置中定义 GLOBAL 组，由它决定面板中代理组的排序。 */
+    globalGroupEnabled: true,
     /** 启用 TUN 模式。 */
     tunEnabled: false,
     /** 去广告规则来源：0=关闭，1=adrules.top，2=217heidai，3=AWAvenue。 */

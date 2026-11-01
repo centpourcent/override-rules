@@ -136,3 +136,23 @@ describe("inlinelanding", () => {
         assert.deepEqual(run({ inlinelanding: "true" }, config), run({}, config));
     });
 });
+
+describe("globalgroup", () => {
+    it("默认定义 GLOBAL 组", () => {
+        assert.ok(group(run({}, GROUPED), PROXY_GROUPS.GLOBAL));
+    });
+
+    it("传 false 时不定义 GLOBAL 组，其余代理组不变", () => {
+        const withGlobal = run({}, GROUPED)["proxy-groups"] ?? [];
+        const withoutGlobal = run({ globalgroup: "false" }, GROUPED)["proxy-groups"] ?? [];
+
+        assert.deepEqual(withoutGlobal, withGlobal.slice(0, -1));
+    });
+
+    it("可与 inlinelanding 同时使用", () => {
+        const result = run({ globalgroup: "false", inlinelanding: "true" }, GROUPED);
+
+        assert.equal(group(result, PROXY_GROUPS.GLOBAL), undefined);
+        assert.ok(group(result, PROXY_GROUPS.SELECT)?.proxies?.includes("落地A"));
+    });
+});

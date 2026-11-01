@@ -50,6 +50,7 @@ export function buildFeatureFlags(args: ScriptArgs): FeatureFlags {
         quicEnabled: parseBool(args.quic, ARG_DEFAULTS.quicEnabled),
         regexFilter: parseBool(args.regex, ARG_DEFAULTS.regexFilter),
         inlineLandingEnabled: parseBool(args.inlinelanding, ARG_DEFAULTS.inlineLandingEnabled),
+        globalGroupEnabled: parseBool(args.globalgroup, ARG_DEFAULTS.globalGroupEnabled),
         tunEnabled: parseBool(args.tun, ARG_DEFAULTS.tunEnabled),
         countryThreshold: parseNumber(args.threshold, ARG_DEFAULTS.countryThreshold),
         adblockSource: parseAdblockSource(args),

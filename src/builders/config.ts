@@ -68,9 +68,9 @@ export interface AssembleConfigInput {
     proxyGroups: ProxyGroup[];
 }
 
-/** 对已构建的代理组执行收尾处理：追加 GLOBAL，并按开关展开落地节点引用。 */
+/** 对已构建的代理组执行收尾处理：按开关追加 GLOBAL、展开落地节点引用。 */
 function finalizeProxyGroups({ flags, nodes, proxyGroups }: AssembleConfigInput): ProxyGroup[] {
-    const groups = appendGlobalGroup(proxyGroups);
+    const groups = flags.globalGroupEnabled ? appendGlobalGroup(proxyGroups) : proxyGroups;
     return flags.inlineLandingEnabled
         ? expandLandingReferences(groups, nodes.landingNodes)
         : groups;
