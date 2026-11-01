@@ -6,12 +6,13 @@
  */
 
 import { countryExcludeRegexMap, countryRegexMap } from "../catalog/countries";
-import { PROXY_GROUPS } from "../catalog/group-names";
+import { PROXY_GROUPS, regionGroupNames } from "../catalog/group-names";
 import { LOW_COST_NODE_MATCHER } from "../catalog/low-cost";
 import { getActiveCountryNames } from "./active-countries";
+import { splitCountriesByProvider } from "./providers";
 import type { NodeAnalysis, ProxyNode, RegionLayout } from "../types/proxy";
 
-/** 生成地区组所需的最少达标地区数；不足时展平到上层代理组。 */
+/** 生成地区组所需的最少代理组数；不足时展平到上层代理组。 */
 const MIN_REGION_GROUPS = 2;
 
 /**
@@ -89,8 +90,13 @@ function excludeTailscale(nodes: ProxyNode[]): ProxyNode[] {
  * 对节点列表执行全部分类。
  * @param nodes - 上游订阅的节点列表（`config.proxies`）
  * @param threshold - 地区节点数量的最小阈值
+ * @param splitProviders - 需要单独成组的提供商名称
  */
-export function analyzeNodes(nodes: ProxyNode[], threshold: number): NodeAnalysis {
+export function analyzeNodes(
+    nodes: ProxyNode[],
+    threshold: number,
+    splitProviders: string[] = []
+): NodeAnalysis {
     const { landingNodes, nonLandingNodes } = splitByLanding(nodes);
     // 只要出现落地节点就启用落地相关代理组；全落地时非落地候选自然为空。
     const landing = landingNodes.length > 0;
@@ -102,9 +108,22 @@ export function analyzeNodes(nodes: ProxyNode[], threshold: number): NodeAnalysi
     const countryNames = getActiveCountryNames(countryNodes, threshold);
     const lowCostNodes = collectLowCost(scopedNodes);
 
+    const groupedLayout: RegionLayout = {
+        mode: "grouped",
+        groupedCountries: countryNames,
+        flattenedNodes: [],
+        ...(splitProviders.length > 0 && {
+            providerSplits: splitCountriesByProvider(countryNames, countryNodes, splitProviders),
+        }),
+    };
+    // 按拆分后实际生成的代理组数判定：单个地区拆出多个提供商子分组时仍值得保留分组结构。
+    const regionGroupCount = countryNames.flatMap((country) =>
+        regionGroupNames(groupedLayout, country)
+    ).length;
+
     const regionLayout: RegionLayout =
-        countryNames.length >= MIN_REGION_GROUPS
-            ? { mode: "grouped", groupedCountries: countryNames, flattenedNodes: [] }
+        regionGroupCount >= MIN_REGION_GROUPS
+            ? groupedLayout
             : {
                   mode: "flattened",
                   groupedCountries: [],

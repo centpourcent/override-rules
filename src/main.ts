@@ -16,6 +16,7 @@ https://github.com/powerfullz/override-rules
 - regex: 使用正则过滤模式（include-all + filter）写入各地区代理组，而非直接枚举节点名称（默认 false）
 - adblock: 去广告规则（0=关闭，1=adrules.top，2=217heidai，3=AWAvenue，默认 3）
 - inlinelanding: 将其他代理组中对「落地节点」组的引用展开为具体的落地节点名称（默认 false）
+- splitproviders: 按订阅提供商拆分地区代理组，逗号分隔的提供商名称（默认空，功能关闭）
 - globalgroup: 是否在配置中定义 GLOBAL 代理组（默认 true；传 false 时不定义，由内核使用其内置 GLOBAL）
 
 源码位于 `src/`，入口为 `src/main.ts`。
@@ -52,7 +53,7 @@ function main(config: ClashConfig): ClashConfig {
     }
 
     const flags = buildFeatureFlags(readRawArgs());
-    const nodes = analyzeNodes(config.proxies, flags.countryThreshold);
+    const nodes = analyzeNodes(config.proxies, flags.countryThreshold, flags.splitProviders);
     const lists = buildBaseLists({
         landing: nodes.landing,
         landingNodes: nodes.landingNodes,

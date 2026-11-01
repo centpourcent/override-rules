@@ -33,6 +33,24 @@ export function parseNumber(value: unknown, defaultValue = 0): number {
 }
 
 /**
+ * 解析逗号分隔的列表参数，去除首尾空白、丢弃空项并按原值去重。
+ *
+ * 兼容 Substore 的两种传参形式：`#a=x,y` 字符串，以及 JSON 哈希中的字符串数组。
+ * 未传参或传入布尔值时返回空数组：Substore 会把空值解析为 `true`，不能当成名为 "true" 的列表项。
+ * @param value - 待解析的原始值
+ */
+export function parseList(value: unknown): string[] {
+    let items: unknown[] = [];
+    if (Array.isArray(value)) {
+        items = value;
+    } else if (typeof value === "string") {
+        items = value.split(",");
+    }
+
+    return [...new Set(items.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+/**
  * 接受任意数量的元素（包括嵌套数组），展平后过滤掉所有假值（false、null、undefined 等）。
  * @param elements - 任意数量的元素或元素数组，允许混入假值
  */

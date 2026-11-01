@@ -7,8 +7,9 @@
  * - 构造工厂：`domain/proxy-group.ts`
  */
 
+import { buildProviderExcludeFilter } from "../analysis/providers";
 import { countriesMeta } from "../catalog/countries";
-import { countryGroupName, PROXY_GROUPS } from "../catalog/group-names";
+import { countryGroupName, PROXY_GROUPS, regionGroupNames } from "../catalog/group-names";
 import { ICONS } from "../catalog/icons";
 import { LOW_COST_NODE_MATCHER } from "../catalog/low-cost";
 import { serviceGroups } from "../catalog/service-groups";
@@ -21,7 +22,7 @@ import {
 } from "../domain/proxy-group";
 import { isNotNull } from "../utils/primitives";
 import { buildNodeExcludeFilter, combineExcludeFilters } from "../utils/regex";
-import type { GroupBuildContext, ProxyGroup } from "../types/proxy";
+import type { GroupBuildContext, ProxyGroup, ProxyGroupNodeSource } from "../types/proxy";
 
 /** 顶层选择类代理组：选择代理、手动选择、以及链式代理相关组。 */
 function buildFrontGroups(ctx: GroupBuildContext): Array<ProxyGroup | null> {
@@ -91,6 +92,7 @@ function buildRegionGroups(ctx: GroupBuildContext): Array<ProxyGroup | null> {
     const { flags, nodes } = ctx;
     const hasLowCost = nodes.lowCostNodes.length > 0 || flags.regexFilter;
     const tailscaleExcludeFilter = buildNodeExcludeFilter(nodes.tailscaleNodes);
+    const providerExcludeFilter = buildProviderExcludeFilter(flags.splitProviders);
 
     const lowCostGroup = hasLowCost
         ? buildGroupByType({
@@ -109,24 +111,40 @@ function buildRegionGroups(ctx: GroupBuildContext): Array<ProxyGroup | null> {
           })
         : null;
 
-    const countryGroups = nodes.regionLayout.groupedCountries.map((country) => {
+    const countryGroups = nodes.regionLayout.groupedCountries.flatMap((country) => {
         const meta = countriesMeta[country];
-
-        const excludeFilter = combineExcludeFilters(meta.excludePattern, tailscaleExcludeFilter);
+        const split = nodes.regionLayout.providerSplits?.[country];
+        const baseNodes = split ? split.baseNodes : nodes.countryNodes[country];
+        const excludeFilter = combineExcludeFilters(
+            combineExcludeFilters(meta.excludePattern, tailscaleExcludeFilter),
+            providerExcludeFilter
+        );
         const nodeSource = flags.regexFilter
             ? {
                   "include-all": true as const,
                   filter: meta.pattern,
                   ...(excludeFilter ? { "exclude-filter": excludeFilter } : {}),
               }
-            : { proxies: nodes.countryNodes[country].map((node) => node.name) };
+            : { proxies: baseNodes.map((node) => node.name) };
 
-        return buildGroupByType({
-            name: countryGroupName(country),
-            icon: meta.icon,
-            groupType: flags.groupType,
-            nodeSource,
-        });
+        const buildGroup = (name: string, source: ProxyGroupNodeSource) =>
+            buildGroupByType({
+                name,
+                icon: meta.icon,
+                groupType: flags.groupType,
+                nodeSource: source,
+            });
+        const baseName = countryGroupName(country);
+
+        // 子分组始终枚举节点：单个正则无法表达「同时满足地区与提供商」的交集
+        return [
+            ...(split?.subGroups ?? []).map((subGroup) =>
+                buildGroup(subGroup.name, { proxies: subGroup.nodes.map((node) => node.name) })
+            ),
+            ...(regionGroupNames(nodes.regionLayout, country).includes(baseName)
+                ? [buildGroup(baseName, nodeSource)]
+                : []),
+        ];
     });
 
     return [lowCostGroup, ...countryGroups];

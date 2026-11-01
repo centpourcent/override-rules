@@ -21,7 +21,7 @@ export function createCaseInsensitiveNodeMatcher(source: string): CaseInsensitiv
 }
 
 /** 转义节点名称中的正则元字符，使其只按字面量匹配。 */
-function escapeRegExp(value: string): string {
+export function escapeRegExp(value: string): string {
     return value.replace(REGEXP_SPECIAL_CHARS, "\\$&");
 }
 

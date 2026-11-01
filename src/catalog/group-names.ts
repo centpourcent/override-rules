@@ -2,6 +2,8 @@
  * 代理组的展示名称与命名辅助函数。
  */
 
+import type { RegionLayout } from "../types/proxy";
+
 /** 地区代理组名称的统一后缀，例如「香港」→「香港节点」。 */
 const NODE_SUFFIX = "节点";
 
@@ -51,4 +53,19 @@ export const PROXY_GROUPS = {
  */
 export function countryGroupName(country: string): string {
     return `${country}${NODE_SUFFIX}`;
+}
+
+/**
+ * 取某地区实际生成的全部代理组名：各提供商子分组在前、基础分组在后，基础分组为空时省略。
+ * @param regions - 地区代理组布局
+ * @param country - 纯地区名（不含后缀）
+ */
+export function regionGroupNames(regions: RegionLayout, country: string): string[] {
+    const split = regions.providerSplits?.[country];
+    if (!split) return [countryGroupName(country)];
+
+    const subGroupNames = split.subGroups.map((subGroup) => subGroup.name);
+    return split.baseNodes.length > 0
+        ? [...subGroupNames, countryGroupName(country)]
+        : subGroupNames;
 }

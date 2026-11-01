@@ -6,7 +6,7 @@
  */
 
 import { COUNTRY_KEYS } from "./countries";
-import { countryGroupName, PROXY_GROUPS } from "./group-names";
+import { PROXY_GROUPS, regionGroupNames } from "./group-names";
 import { ICONS } from "./icons";
 import type { GroupBuildContext, ProxyGroupCandidate } from "../types/proxy";
 
@@ -103,13 +103,14 @@ export const serviceGroups: ServiceGroupDef[] = [
         name: PROXY_GROUPS.BILIBILI,
         icon: ICONS.bilibili,
         proxies: (ctx) => {
-            const groupedCountries = ctx.nodes.regionLayout.groupedCountries;
+            const regions = ctx.nodes.regionLayout;
+            const groupedCountries = regions.groupedCountries;
             return groupedCountries.includes(COUNTRY_KEYS.taiwan) &&
                 groupedCountries.includes(COUNTRY_KEYS.hongKong)
                 ? [
                       "DIRECT",
-                      countryGroupName(COUNTRY_KEYS.taiwan),
-                      countryGroupName(COUNTRY_KEYS.hongKong),
+                      ...regionGroupNames(regions, COUNTRY_KEYS.taiwan),
+                      ...regionGroupNames(regions, COUNTRY_KEYS.hongKong),
                   ]
                 : ctx.lists.defaultProxiesDirect;
         },
@@ -120,7 +121,7 @@ export const serviceGroups: ServiceGroupDef[] = [
         proxies: (ctx) =>
             ctx.nodes.regionLayout.groupedCountries.includes(COUNTRY_KEYS.taiwan)
                 ? [
-                      countryGroupName(COUNTRY_KEYS.taiwan),
+                      ...regionGroupNames(ctx.nodes.regionLayout, COUNTRY_KEYS.taiwan),
                       PROXY_GROUPS.SELECT,
                       PROXY_GROUPS.MANUAL,
                       "DIRECT",
@@ -174,7 +175,7 @@ export const serviceGroups: ServiceGroupDef[] = [
         proxies: (ctx) =>
             ctx.nodes.regionLayout.groupedCountries.includes(COUNTRY_KEYS.unitedStates)
                 ? [
-                      countryGroupName(COUNTRY_KEYS.unitedStates),
+                      ...regionGroupNames(ctx.nodes.regionLayout, COUNTRY_KEYS.unitedStates),
                       PROXY_GROUPS.SELECT,
                       PROXY_GROUPS.MANUAL,
                   ]

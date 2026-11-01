@@ -2,7 +2,7 @@
  * URL 参数解析：将原始字符串参数转换为类型安全的 `FeatureFlags`。
  */
 
-import { parseBool, parseNumber } from "../utils/primitives";
+import { parseBool, parseList, parseNumber } from "../utils/primitives";
 import { ARG_DEFAULTS } from "./schema";
 import type { AdblockSource, FeatureFlags, GroupType, ScriptArgs } from "../types/args";
 
@@ -50,6 +50,7 @@ export function buildFeatureFlags(args: ScriptArgs): FeatureFlags {
         quicEnabled: parseBool(args.quic, ARG_DEFAULTS.quicEnabled),
         regexFilter: parseBool(args.regex, ARG_DEFAULTS.regexFilter),
         inlineLandingEnabled: parseBool(args.inlinelanding, ARG_DEFAULTS.inlineLandingEnabled),
+        splitProviders: parseList(args.splitproviders),
         globalGroupEnabled: parseBool(args.globalgroup, ARG_DEFAULTS.globalGroupEnabled),
         tunEnabled: parseBool(args.tun, ARG_DEFAULTS.tunEnabled),
         countryThreshold: parseNumber(args.threshold, ARG_DEFAULTS.countryThreshold),

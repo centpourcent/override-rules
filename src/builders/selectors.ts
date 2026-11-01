@@ -2,7 +2,7 @@
  * 基础候选列表构建：为各策略组提供可复用的代理选项集合。
  */
 
-import { countryGroupName, PROXY_GROUPS } from "../catalog/group-names";
+import { PROXY_GROUPS, regionGroupNames } from "../catalog/group-names";
 import { buildList } from "../utils/primitives";
 import { buildNodeExcludeFilter } from "../utils/regex";
 import type {
@@ -181,7 +181,9 @@ export function buildBaseLists({
     regexFilter,
     regions,
 }: BuildBaseListsInput): BaseLists {
-    const suffixedCountryNames = regions.groupedCountries.map(countryGroupName);
+    const suffixedCountryNames = regions.groupedCountries.flatMap((country) =>
+        regionGroupNames(regions, country)
+    );
     const hasLowCost = lowCostNodes.length > 0 || regexFilter;
 
     if (regions.mode === "flattened") {

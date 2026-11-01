@@ -87,10 +87,18 @@ export type ProxyGroupNodeSource = Pick<
 /** 代理组候选项：代理组/节点名称，或需要合并进同一组的节点来源。 */
 export type ProxyGroupCandidate = string | ProxyGroupNodeSource;
 
+/** 单个地区按提供商拆分的结果。 */
+export interface CountryProviderSplit {
+    /** 含节点的提供商子分组。 */
+    subGroups: Array<{ name: string; nodes: ProxyNode[] }>;
+    /** 未被任何所配置提供商匹配的节点；为空时不生成基础分组。 */
+    baseNodes: ProxyNode[];
+}
+
 /**
  * 地区代理组布局。
  *
- * 达标地区数不足 `MIN_REGION_GROUPS` 时进入展平模式，不生成地区组，
+ * 地区组数量不足 `MIN_REGION_GROUPS` 时进入展平模式，不生成地区组，
  * 由上层代理组直接引用非落地节点。
  */
 export interface RegionLayout {
@@ -99,6 +107,8 @@ export interface RegionLayout {
     groupedCountries: string[];
     /** 展平模式下直接进入上层列表的非落地节点。 */
     flattenedNodes: ProxyNode[];
+    /** 地区名 → 提供商拆分结果；仅在分组模式且配置了 `splitproviders` 时存在。 */
+    providerSplits?: Record<string, CountryProviderSplit>;
 }
 
 /** 各策略组可复用的基础代理候选列表。 */

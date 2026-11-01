@@ -13,6 +13,7 @@ export interface ScriptArgs {
     quic?: string;
     regex?: string;
     inlinelanding?: string;
+    splitproviders?: string;
     globalgroup?: string;
     threshold?: string;
     tun?: string;
@@ -35,6 +36,7 @@ export interface FeatureFlags {
     quicEnabled: boolean;
     regexFilter: boolean;
     inlineLandingEnabled: boolean;
+    splitProviders: string[];
     globalGroupEnabled: boolean;
     countryThreshold: number;
     tunEnabled: boolean;
