@@ -9,9 +9,19 @@ name: Deploy Preview
       - 'src/**'
       - 'scripts/**'
       - '.github/workflows/preview.yaml'
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+# main 发布到 preview，personal 发布到 preview-personal，互不覆盖
+env:
+  PREVIEW_BRANCH: ${{ github.ref_name == 'personal' && 'preview-personal' || 'preview' }}
+
+# 同一来源分支有新构建时取消旧构建，避免旧产物晚到覆盖新产物
+concurrency:
+  group: preview-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   preview:
@@ -39,7 +49,7 @@ jobs:
 
       - name: Assemble preview payload
         env:
-          VERSION: preview
+          VERSION: ${{ env.PREVIEW_BRANCH }}
         run: |
           set -euo pipefail
 
@@ -116,10 +126,17 @@ jobs:
           git init
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b preview
+          git checkout -b "$PREVIEW_BRANCH"
           git add .
-          git commit -m "Auto-generated preview for ${{ github.sha }}"
-          
+          git commit -m "Auto-generated preview for ${{ github.ref_name }}@${{ github.sha }}"
+
           # Force push the preview branch
           git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git push -f -u origin preview
+          git push -f -u origin "$PREVIEW_BRANCH"
+
+      - name: Purge jsDelivr cache
+        continue-on-error: true
+        run: |
+          for f in convert.js convert.min.js; do
+            curl -fsS "https://purge.jsdelivr.net/gh/${{ github.repository }}@${PREVIEW_BRANCH}/${f}" || true
+          done
