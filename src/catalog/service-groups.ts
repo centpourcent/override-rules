@@ -45,6 +45,11 @@ function directThenLanding(ctx: GroupBuildContext): ProxyGroupCandidate[] {
 /** 服务代理组，按输出顺序排列。 */
 export const serviceGroups: ServiceGroupDef[] = [
     {
+        name: PROXY_GROUPS.PERSONAL_SERVICES,
+        icon: ICONS.personalServices,
+        proxies: (ctx) => ctx.lists.defaultProxiesDirect,
+    },
+    {
         name: PROXY_GROUPS.TRACKER_PROXY,
         icon: ICONS.trackerProxy,
         proxies: directThenLanding,

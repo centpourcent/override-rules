@@ -34,6 +34,7 @@ export function buildRules({
         hasTailscale ? `DOMAIN-SUFFIX,ts.net,${PROXY_GROUPS.TAILSCALE}` : null,
         `GEOIP,private,DIRECT,no-resolve`,
         `GEOSITE,category-ai-!cn,${PROXY_GROUPS.AI_SERVICE}`,
+        ruleSet("PersonalServices", PROXY_GROUPS.PERSONAL_SERVICES),
         ruleSet("TrackerProxy", PROXY_GROUPS.TRACKER_PROXY),
         ruleSet("TrackerDirect", PROXY_GROUPS.TRACKER_DIRECT),
         adblockSource > 0 ? ruleSet("ADBlock", PROXY_GROUPS.AD_BLOCK) : null,

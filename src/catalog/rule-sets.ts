@@ -113,6 +113,14 @@ export const ruleSets = {
         url: `${CDN_URL}/gh/centpourcent/override-rules@personal/ruleset/TrackerDirect.list`,
         path: "./ruleset/TrackerDirect.list",
     },
+    PersonalServices: {
+        type: "http",
+        behavior: "classical",
+        format: "text",
+        interval: 86400,
+        url: `${CDN_URL}/gh/centpourcent/override-rules@personal/ruleset/PersonalServices.list`,
+        path: "./ruleset/PersonalServices.list",
+    },
 } satisfies Record<string, RuleProvider>;
 
 /** `ADBlock` 的替代下载源（1=adrules.top，3=AWAvenue；2 使用 `ruleSets.ADBlock`）。 */

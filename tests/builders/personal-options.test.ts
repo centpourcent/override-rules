@@ -60,12 +60,13 @@ describe("Tracker 分流", () => {
         assert.deepEqual(group(result, PROXY_GROUPS.TRACKER_PROXY)?.proxies, ["DIRECT"]);
     });
 
-    it("代理组排在落地节点之后、静态资源之前", () => {
+    it("代理组排在落地节点与个人服务之后、静态资源之前", () => {
         const names = run({}, GROUPED)["proxy-groups"]?.map((item) => item.name) ?? [];
         const start = names.indexOf(PROXY_GROUPS.LANDING);
 
-        assert.deepEqual(names.slice(start, start + 4), [
+        assert.deepEqual(names.slice(start, start + 5), [
             PROXY_GROUPS.LANDING,
+            PROXY_GROUPS.PERSONAL_SERVICES,
             PROXY_GROUPS.TRACKER_PROXY,
             PROXY_GROUPS.TRACKER_DIRECT,
             PROXY_GROUPS.STATIC_RESOURCES,
@@ -79,6 +80,25 @@ describe("Tracker 分流", () => {
 
         assert.ok(proxyIndex >= 0 && directIndex === proxyIndex + 1);
         assert.ok(directIndex < rules.indexOf(`RULE-SET,ADBlock,${PROXY_GROUPS.AD_BLOCK}`));
+    });
+});
+
+describe("个人服务分流", () => {
+    it("代理组以 DIRECT 优先", () => {
+        const proxies = group(run({}, GROUPED), PROXY_GROUPS.PERSONAL_SERVICES)?.proxies;
+        assert.equal(proxies?.[0], "DIRECT");
+    });
+
+    it("规则位于 Tracker 规则之前", () => {
+        const rules = run({}, GROUPED).rules ?? [];
+        const personalIndex = rules.indexOf(
+            `RULE-SET,PersonalServices,${PROXY_GROUPS.PERSONAL_SERVICES}`
+        );
+
+        assert.ok(personalIndex >= 0);
+        assert.ok(
+            personalIndex < rules.indexOf(`RULE-SET,TrackerProxy,${PROXY_GROUPS.TRACKER_PROXY}`)
+        );
     });
 });
 

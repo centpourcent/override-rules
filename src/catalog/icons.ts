@@ -24,6 +24,7 @@ export const ICONS = {
     manual: `${STASH}/select.png`,
     frontProxy: `${QURE}/Area.png`,
     landing: `${QURE}/Airport.png`,
+    personalServices: `${QURE}/Server.png`,
     trackerProxy: `${QURE}/Magic.png`,
     trackerDirect: `${QURE}/Bypass.png`,
     staticResources: `${QURE}/Cloudflare.png`,
