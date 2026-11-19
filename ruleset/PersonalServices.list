@@ -1,8 +1,18 @@
+# 3rd party web player and downloader for apple music
 DOMAIN-SUFFIX,music.ak1ra.de5.net
+
+# greencloud-251128
+IP-CIDR,194.127.192.90/32,no-resolve
 DOMAIN-SUFFIX,sg1-cdn.didibox.xyz
 DOMAIN-SUFFIX,sg1-direct.didibox.xyz
 DOMAIN-SUFFIX,sg1-panel.didibox.xyz
+
+# rackner-221106
+IP-CIDR,23.94.208.246/32,no-resolve
 DOMAIN-SUFFIX,us1-cdn.didibox.xyz
 DOMAIN-SUFFIX,us1-direct.didibox.xyz
 DOMAIN-SUFFIX,us1-panel.didibox.xyz
 DOMAIN-SUFFIX,us1-sub.didibox.xyz
+
+# raksmart-261119
+IP-CIDR,107.148.227.221/32,no-resolve
