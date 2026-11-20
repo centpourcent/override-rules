@@ -16,3 +16,4 @@ DOMAIN-SUFFIX,us1-sub.didibox.xyz
 
 # raksmart-261119
 IP-CIDR,107.148.227.221/32,no-resolve
+DOMAIN-SUFFIX,us2-orca.didibox.xyz
