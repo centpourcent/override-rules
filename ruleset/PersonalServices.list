@@ -17,3 +17,10 @@ DOMAIN-SUFFIX,us1-sub.didibox.xyz
 # raksmart-261119
 IP-CIDR,107.148.227.221/32,no-resolve
 DOMAIN-SUFFIX,us2-orca.didibox.xyz
+
+# dedirock-261123
+IP-CIDR,107.174.28.145/32,no-resolve
+DOMAIN-SUFFIX,us3-cdn.didibox.xyz
+DOMAIN-SUFFIX,us3-direct.didibox.xyz
+DOMAIN-SUFFIX,us3-panel.didibox.xyz
+DOMAIN-SUFFIX,us3-sub.didibox.xyz
