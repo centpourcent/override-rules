@@ -20,6 +20,7 @@ DOMAIN-SUFFIX,us2-orca.didibox.xyz
 
 # dedirock-261123
 IP-CIDR,107.174.28.145/32,no-resolve
+DOMAIN-SUFFIX,us-dedirock.didibox.xyz
 DOMAIN-SUFFIX,us3-cdn.didibox.xyz
 DOMAIN-SUFFIX,us3-direct.didibox.xyz
 DOMAIN-SUFFIX,us3-panel.didibox.xyz
